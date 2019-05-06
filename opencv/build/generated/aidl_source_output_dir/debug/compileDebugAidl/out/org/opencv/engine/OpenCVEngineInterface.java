@@ -1,6 +1,6 @@
 /*
  * This file is auto-generated.  DO NOT MODIFY.
- * Original file: /Users/sharadbrat/AndroidStudioProjects/mis-2019-exercise-3b-opencv/opencv/src/main/aidl/org/opencv/engine/OpenCVEngineInterface.aidl
+ * Original file: /home/nika/Dokumente/Uni/Mobile Information Systems/Übung/mis-2019-exercise-3b-opencv/opencv/src/main/aidl/org/opencv/engine/OpenCVEngineInterface.aidl
  */
 package org.opencv.engine;
 /**
