@@ -22,6 +22,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.Display;
 import android.view.MenuItem;
 import android.view.SurfaceView;
 import android.view.WindowManager;
@@ -40,8 +41,15 @@ public class MainActivity extends AppCompatActivity implements CvCameraViewListe
     private MenuItem mItemSwitchCamera = null;
     private CascadeClassifier faceClassifier;
     private CascadeClassifier noseClassifier;
-    private Size faceClassifierSize;
-    private Size noseClassifierSize;
+    private Size faceClassifierMinSize = new Size(100, 100);
+    private Size faceClassifierMaxSize = new Size(600, 600);
+    private Size noseClassifierMinSize = new Size(50, 50);
+    private Size noseClassifierMaxSize = new Size(200, 200);
+
+    private Mat result;
+    private Mat gray;
+    private MatOfRect faces;
+    private MatOfRect noses;
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -120,52 +128,57 @@ public class MainActivity extends AppCompatActivity implements CvCameraViewListe
     }
 
     public void onCameraViewStarted(int width, int height) {
-        faceClassifierSize = new Size(50, 50);
-        noseClassifierSize = new Size(2, 2);
+        // Had some performance and memory issues and decided to initialiye the values here
+        result = new Mat();
+        gray = new Mat();
+        faces = new MatOfRect();
+        noses = new MatOfRect();
     }
 
     public void onCameraViewStopped() {
     }
 
     public Mat onCameraFrame(CvCameraViewFrame inputFrame) {
+        Mat rgba = inputFrame.rgba();
 
-        //return inputFrame.rgba();
-        /*
-        Mat col  = inputFrame.rgba();
-        Rect foo = new Rect(new Point(100,100), new Point(200,200));
-        Imgproc.rectangle(col, foo.tl(), foo.br(), new Scalar(0, 0, 255), 3);
-        return col;
-        */
+        rgba = rotateMatCW(rgba);
 
-        MatOfRect faces = new MatOfRect();
+        Imgproc.cvtColor(rgba, gray, Imgproc.COLOR_BGR2GRAY);
 
-        Mat gray = inputFrame.gray();
-        Mat col = inputFrame.rgba();
         if (faceClassifier != null) {
-            faceClassifier.detectMultiScale(gray, faces, 1.2, 0, 0, faceClassifierSize, new Size());
+            faceClassifier.detectMultiScale(gray, faces, 1.3, 1, 1, faceClassifierMinSize, faceClassifierMaxSize);
         }
 
-        for (Rect face: faces.toArray()) {
+        for (Rect face : faces.toArray()) {
 
-            MatOfRect noses = new MatOfRect();
+//            Imgproc.rectangle(
+//                    rgba,
+//                    new Point(face.x, face.y),
+//                    new Point(face.x + face.width, face.y + face.height),
+//                    new Scalar(255, 255, 0),
+//                    5
+//            );
 
             Mat faceArea = gray.submat(new Rect(face.x, face.y, face.width, face.height));
 
-            noseClassifier.detectMultiScale(faceArea, noses, 1.2, 0, 0, noseClassifierSize, new Size());
+            noseClassifier.detectMultiScale(faceArea, noses, 1.3, 1, 1, noseClassifierMinSize, noseClassifierMaxSize);
 
-            for (Rect nose: noses.toArray()) {
+            for (Rect nose : noses.toArray()) {
+
+                int noseX = nose.x + face.x;
+                int noseY = nose.y + face.y;
 
                 Imgproc.circle(
-                        col,
-                        new Point(nose.x + nose.width / 2, nose.y + nose.height / 2),
-                        nose.width * 2,
+                        rgba,
+                        new Point(noseX + nose.width / 2, noseY + nose.height / 2),
+                        nose.width / 2,
                         new Scalar(255, 0, 0),
-                        10
+                        -1
                 );
             }
         }
 
-        return col;
+        return rgba;
     }
 
 
@@ -184,5 +197,14 @@ public class MainActivity extends AppCompatActivity implements CvCameraViewListe
         }
         Log.d(TAG, "prepared local file: " + filename);
         return file.getAbsolutePath();
+    }
+
+    // Thanks to https://github.com/mmbuw-courses/mis-2019-exercise-3b-opencv/pull/1
+    Mat rotateMatCW(Mat src) {
+        Mat rotationMatrix = Imgproc.getRotationMatrix2D(new Point(src.cols() / 2, src.rows() / 2), 270, 1);
+
+        //Rotating the given image
+        Imgproc.warpAffine(src, result, rotationMatrix, new Size(src.cols(), src.rows()));
+        return result;
     }
 }
